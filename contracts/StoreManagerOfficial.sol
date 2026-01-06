@@ -16,7 +16,7 @@ interface IUltimateDealStore {
     function verifyReceipt(address client, uint256 receiptId) external view returns (bool);
 }
 
-contract ListingUltimateDeAl is ReentrancyGuard {
+contract Listing is ReentrancyGuard {
     address public owner;
     mapping(uint256 => bool) private usedReceipts;
     IUltimateDealStore public LastTryOfReviewestore;
