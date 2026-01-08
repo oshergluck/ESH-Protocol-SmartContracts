@@ -36,7 +36,7 @@ The architecture is composed of five interacting contract systems:
     * **Key Feature:** Implements a `distributeMulticall` function to handle dividend distribution to thousands of holders in batches to bypass block gas limits.
 
 ### 4. Commerce Engine (dCommerce)
-* **`ESHStoreSales.sol` & `ESHStoreRentals.sol`:**
+* **`ESHStoreSalesDB.sol` & `ESHStoreRentalsDB.sol`:**
     * Manages on-chain inventory, pricing, and discounts.
     * Integrates with the Invoice Minter to generate proof-of-purchase.
 * **`ESHInvoices.sol` (Dynamic NFTs):**
@@ -129,7 +129,7 @@ This project is licensed under the MIT License.
 
 ---
 
-**Author:** Asher Haim Glick
+**Author:** Osher Haim Gluck
 
 **Role:** Lead Blockchain Architect
 
