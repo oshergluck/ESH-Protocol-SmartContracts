@@ -1,5 +1,5 @@
 /**
-* SPDX-License-Identifier: MIT
+* SPDX-License-Identifier: Apache 2.0
 **/
 pragma solidity ^0.8.25;
 import "contracts/IERC20Flat.sol";
