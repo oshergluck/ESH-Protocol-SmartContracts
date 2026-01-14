@@ -6,9 +6,10 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 
 contract ESH is ERC20, Ownable, ReentrancyGuard {
-    
+    using Address for address;
     // ==========================================
     // State Variables - Holders List (ERCUltra)
     // ==========================================
@@ -105,7 +106,7 @@ contract ESH is ERC20, Ownable, ReentrancyGuard {
             _addHolder(to);
         }
         if (from != address(0) && balanceOf(from) == 0) {
-            _removeOwner(from);
+            _removeHolder(from);
         }
     }
 
@@ -119,7 +120,7 @@ contract ESH is ERC20, Ownable, ReentrancyGuard {
         ownerIndex[account] = owners.length;
     }
 
-    function _removeOwner(address account) internal {
+    function _removeHolder(address account) internal {
         uint256 indexPlusOne = ownerIndex[account];
         if (indexPlusOne == 0) return;
 
@@ -127,9 +128,9 @@ contract ESH is ERC20, Ownable, ReentrancyGuard {
         uint256 lastIndex = owners.length;
 
         if (toDeleteIndex != lastIndex - 1) {
-            address lastOwner = owners[lastIndex - 1];
-            owners[toDeleteIndex] = lastOwner;
-            ownerIndex[lastOwner] = indexPlusOne; 
+            address lastHolder = owners[lastIndex - 1];
+            owners[toDeleteIndex] = lastHolder;
+            ownerIndex[lastHolder] = indexPlusOne; 
         }
 
         owners.pop();
@@ -188,12 +189,12 @@ contract ESH is ERC20, Ownable, ReentrancyGuard {
         require(!distributionInitialized[distributionId], "Already initialized");
 
         uint256 start = distributionInitIndex[distributionId];
-        uint256 totalOwners = owners.length;
-        require(start < totalOwners, "Init complete");
+        uint256 totalHolders = owners.length;
+        require(start < totalHolders, "Init complete");
 
         uint256 end = start + maxHolders;
-        if (end > totalOwners) {
-            end = totalOwners;
+        if (end > totalHolders) {
+            end = totalHolders;
         }
 
         for (uint256 i = start; i < end; i++) {
@@ -208,7 +209,7 @@ contract ESH is ERC20, Ownable, ReentrancyGuard {
 
         distributionInitIndex[distributionId] = end;
 
-        if (end == totalOwners) {
+        if (end == totalHolders) {
             distributionInitialized[distributionId] = true;
             distributionTotalBalance[distributionId] = dist.totalBalance;
         }
@@ -227,6 +228,10 @@ contract ESH is ERC20, Ownable, ReentrancyGuard {
 
         for (uint256 i = dist.startIndex; i < endIndex; i++) {
             address recipient = dist.recipients[i];
+            // ✅ skip contracts
+            if (recipient.code.length != 0) {
+                continue;
+            }
             uint256 share = (dist.amount * dist.balances[i]) / dist.totalBalance;
 
             if (share > 0) {
@@ -356,6 +361,12 @@ contract ESH is ERC20, Ownable, ReentrancyGuard {
                 uint256 endIndex = dist.startIndex + batchSize;
 
                 for (uint256 j = dist.startIndex; j < endIndex; j++) {
+                    address recipient = dist.recipients[j];
+
+                    // ✅ skip contracts
+                    if (recipient.code.length != 0) {
+                        continue;
+                    }
                     uint256 share = (dist.amount * dist.balances[j]);
                     uint256 adjustedShare = share / dist.totalBalance;
 
