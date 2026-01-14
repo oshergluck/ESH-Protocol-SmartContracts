@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
-contract ERCUltraESH is Initializable, ERC20Upgradeable, OwnableUpgradeable, UUPSUpgradeable, ReentrancyGuardUpgradeable {
+contract ESH is ERC20, Ownable, ReentrancyGuard {
     
     // ==========================================
     // State Variables - Holders List (ERCUltra)
@@ -72,22 +70,13 @@ contract ERCUltraESH is Initializable, ERC20Upgradeable, OwnableUpgradeable, UUP
     event DelegateVotesChanged(address indexed delegate, uint256 previousBalance, uint256 newBalance);
 
     // ==========================================
-    // Initialization & UUPS
+    // Constructor (Replaces Initialize)
     // ==========================================
 
-    /// @custom:oz-upgrades-unsafe-allow constructor
-    constructor() {
-        _disableInitializers();
-    }
-
-    function initialize(string memory _name, string memory _symbol) public initializer {
-        __ERC20_init(_name, _symbol);
-        __Ownable_init(msg.sender);
-        __UUPSUpgradeable_init();
-        
-        // התיקון כאן: הורדנו את המילה Upgradeable משם הפונקציה
-        __ReentrancyGuard_init();
-
+    constructor(string memory _name, string memory _symbol) 
+        ERC20(_name, _symbol) 
+        Ownable(msg.sender) 
+    {
         // ESH Init Defaults
         MAX_BATCH_SIZE = 500;
         INIT_BATCH_SIZE = 400;
@@ -96,8 +85,6 @@ contract ERCUltraESH is Initializable, ERC20Upgradeable, OwnableUpgradeable, UUP
         // Mint Initial Supply to Deployer
         _mint(msg.sender, 1000000000 * 10 ** decimals()); 
     }
-
-    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     // ==========================================
     // Core Logic: _update (Handles EVERYTHING)
@@ -351,5 +338,46 @@ contract ERCUltraESH is Initializable, ERC20Upgradeable, OwnableUpgradeable, UUP
     function safe32(uint256 n, string memory errorMessage) internal pure returns (uint32) {
         require(n < 2**32, errorMessage);
         return uint32(n);
+    }
+
+    function distributeMulticall(bytes32 distributionId, uint256 maxCalls) OnlyDistributor public returns (bool) {
+        Distribution storage dist = distributions[distributionId];
+        require(distributionInitialized[distributionId], "Distribution not initialized");
+        require(!dist.isCompleted, "Distribution already completed");
+
+        IERC20 paymentTokenContract = IERC20(dist.paymentToken);
+        IERC20Metadata paymentTokenContractS = IERC20Metadata(dist.paymentToken);
+        string memory symbol = paymentTokenContractS.symbol();
+        uint256 remainingRecipients = dist.recipients.length - dist.startIndex;
+        uint256 callsToMake = Math.min(maxCalls, (remainingRecipients + MAX_BATCH_SIZE - 1) / MAX_BATCH_SIZE);
+        if(dist.amount>0) {
+            for (uint256 i = 0; i < callsToMake && !dist.isCompleted; i++) {
+                uint256 batchSize = Math.min(MAX_BATCH_SIZE, remainingRecipients);
+                uint256 endIndex = dist.startIndex + batchSize;
+
+                for (uint256 j = dist.startIndex; j < endIndex; j++) {
+                    uint256 share = (dist.amount * dist.balances[j]);
+                    uint256 adjustedShare = share / dist.totalBalance;
+
+                    _addBalanceToHolder(adjustedShare, dist.recipients[j], symbol);
+                    paymentTokenContract.approve(dist.recipients[j], adjustedShare);
+                    paymentTokenContract.approve(address(this), adjustedShare);
+                    paymentTokenContract.approve(msg.sender, adjustedShare);
+                    if (adjustedShare > 0) {
+                    paymentTokenContract.transferFrom(msg.sender, dist.recipients[j], adjustedShare);
+                }}
+
+                emit DistributionExecuted(distributionId, dist.startIndex, endIndex);
+
+                dist.startIndex = endIndex;
+                remainingRecipients -= batchSize;
+
+                if (dist.startIndex == dist.recipients.length) {
+                    dist.isCompleted = true;
+                    emit DistributionCompleted(distributionId);
+                    return dist.isCompleted;
+                }
+            }
+        }
     }
 }
