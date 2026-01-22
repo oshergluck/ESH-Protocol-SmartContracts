@@ -335,4 +335,38 @@ contract ESHInvoicesMinter is PrimarySale, Royalty, ERC721Base {
             }
         }
     }
+
+    /**
+     * @dev Returns the number of valid NFTs owned by `owner` for a specific `productBarcode`.
+     * Ignores expired NFTs.
+     */
+    function balanceOfByBarcode(address owner, string memory productBarcode) public view returns (uint256) {
+        uint256 count = 0;
+        uint256 totalSupply = nextTokenIdToMint();
+        bytes32 targetHash = keccak256(abi.encodePacked(productBarcode));
+
+        for (uint256 i = 0; i < totalSupply; i++) {
+            // 1. Check if token exists
+            if (!_exists(i)) {
+                continue;
+            }
+
+            // 2. Check if Barcode matches
+            if (keccak256(abi.encodePacked(NFTsBarcodes[i])) == targetHash) {
+                
+                // 3. Check expiration (if applicable)
+                if (_nftExpirationTimes[i] != 0 && block.timestamp >= _nftExpirationTimes[i]) {
+                    continue; // Skip expired tokens
+                }
+
+                // 4. Check Ownership
+                // Note: using _owners mapping as you defined in your contract, 
+                // but standard ERC721 'ownerOf(i)' is also fine.
+                if (_owners[i] == owner) {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
 }

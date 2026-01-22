@@ -1,4 +1,3 @@
-//SPDX-License-Identifier: Apache 2.0
 pragma solidity ^0.8.25;
 import "contracts/IERC20Flat.sol";
 import "contracts/ReentrancyGuard.sol";
@@ -238,7 +237,7 @@ contract ESHStoreRentals is ReentrancyGuard {
         require(distributions[distributionId].exists, "Distribution does not exist");
         require(!distributions[distributionId].completed, "Distribution already completed");
 
-        IESH tokenContractInstance = IESH(address(tokenContract));
+        IESH tokenContractInstance = IESH(address(rewardToken));
         bool completed = tokenContractInstance.distributeMulticall(distributionId, maxCalls);
 
         if (completed) {
