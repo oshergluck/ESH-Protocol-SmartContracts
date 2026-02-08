@@ -122,8 +122,31 @@ contract ESHInvoicesMinter is PrimarySale, ERC721Base, ReentrancyGuard {
         return balanceOfByBarcode(owner, productBarcode) > 0;
     }
 
-    function verifyOwnership(address owner, uint256 quantity, string memory productBarcode) public view returns (bool) {
-        return balanceOfByBarcode(owner, productBarcode) >= quantity;
+    /**
+     * @dev Verifies that a specific tokenId belongs to the owner, matches the barcode, and isn't expired.
+     */
+    function verifyOwnership(address owner, uint256 tokenId, string memory productBarcode) public view returns (bool) {
+        // 1. Check if token exists
+        if (!_exists(tokenId)) {
+            return false;
+        }
+
+        // 2. Check if the specific tokenId belongs to the owner
+        if (ownerOf(tokenId) != owner) {
+            return false;
+        }
+
+        // 3. Check if the token corresponds to the correct product barcode
+        if (keccak256(bytes(NFTsBarcodes[tokenId])) != keccak256(bytes(productBarcode))) {
+            return false;
+        }
+
+        // 4. Check if token is expired
+        if (_nftExpirationTimes[tokenId] != 0 && block.timestamp >= _nftExpirationTimes[tokenId]) {
+            return false;
+        }
+
+        return true;
     }
 
     // --- Copy Logic ---
